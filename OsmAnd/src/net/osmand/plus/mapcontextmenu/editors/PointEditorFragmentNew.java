@@ -54,6 +54,7 @@ import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.helpers.ColorDialogs;
 import net.osmand.plus.mapcontextmenu.MapContextMenu;
 import net.osmand.plus.mapcontextmenu.other.HorizontalSelectionAdapter;
+import net.osmand.plus.mapcontextmenu.other.OnSwipeTouchListener;
 import net.osmand.plus.routepreparationmenu.cards.BaseCard;
 import net.osmand.plus.routepreparationmenu.cards.BaseCard.CardListener;
 import net.osmand.plus.track.ColorsCard;
@@ -134,6 +135,7 @@ public abstract class PointEditorFragmentNew extends BaseOsmAndFragment implemen
 				.inflate(R.layout.point_editor_fragment_new, container, false);
 		AndroidUtils.addStatusBarPadding21v(getActivity(), view);
 
+
 		final PointEditor editor = getEditor();
 		if (editor == null) {
 			return view;
@@ -173,6 +175,13 @@ public abstract class PointEditorFragmentNew extends BaseOsmAndFragment implemen
 					nameEdit.clearFocus();
 					addressEdit.clearFocus();
 				}
+			}
+		});
+
+		scrollView.setOnTouchListener(new OnSwipeTouchListener(getContext()) {
+			@Override
+			public void onSwipeLeft() {
+				showExitDialog();
 			}
 		});
 
@@ -371,14 +380,14 @@ public abstract class PointEditorFragmentNew extends BaseOsmAndFragment implemen
 		createShapeSelector();
 		updateColorSelector(selectedColor, view);
 		updateShapeSelector(selectedShape, view);
-		scrollView.setOnTouchListener(new View.OnTouchListener() {
-
-			@Override
-			public boolean onTouch(View v, MotionEvent event) {
-				descriptionEdit.getParent().requestDisallowInterceptTouchEvent(false);
-				return false;
-			}
-		});
+//		scrollView.setOnTouchListener(new View.OnTouchListener() {
+//
+//			@Override
+//			public boolean onTouch(View v, MotionEvent event) {
+//				descriptionEdit.getParent().requestDisallowInterceptTouchEvent(false);
+//				return false;
+//			}
+//		});
 
 		descriptionEdit.setOnTouchListener(new View.OnTouchListener() {
 
@@ -646,13 +655,19 @@ public abstract class PointEditorFragmentNew extends BaseOsmAndFragment implemen
 			iconCategoriesRecyclerView.setAdapter(horizontalSelectionAdapter);
 			iconCategoriesRecyclerView.setLayoutManager(new LinearLayoutManager(app, RecyclerView.HORIZONTAL, false));
 			horizontalSelectionAdapter.notifyDataSetChanged();
-			iconCategoriesRecyclerView.smoothScrollToPosition(horizontalSelectionAdapter.getItemPositionByTitle(selectedIconCategory));
+			iconCategoriesRecyclerView.scrollToPosition(horizontalSelectionAdapter.getItemPositionByTitle(selectedIconCategory));
 			for (String name : iconNameList) {
 				int minimalPaddingBetweenIcon = app.getResources().getDimensionPixelSize(R.dimen.favorites_select_icon_button_right_padding);
 				selectIcon.addView(createIconItemView(name, selectIcon), new FlowLayout.LayoutParams(minimalPaddingBetweenIcon, 0));
 				selectIcon.setHorizontalAutoSpacing(true);
 			}
 		}
+		selectIcon.setOnTouchListener(new OnSwipeTouchListener(getContext()) {
+			@Override
+			public void onSwipeLeft() {
+				showExitDialog();
+			}
+		});
 	}
 
 	private View createIconItemView(final String iconName, final ViewGroup rootView) {
