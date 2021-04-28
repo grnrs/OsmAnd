@@ -61,10 +61,42 @@ public class RoutingConfiguration {
 	// extra points to be inserted in ways (quad tree is based on 31 coords)
 	private QuadTree<DirectionPoint> directionPoints;
 	
-	public int directionPointsRadius = 30; // 30 m
+	public int directionPointsRadius = 50; // 30 m
 	
 	public QuadTree<DirectionPoint> getDirectionPoints() {
 		return directionPoints;
+	}
+
+	// Used in JNI
+	public DirectionPointSimplify[] getDirectionPointSimplifyArray() {
+		if (directionPoints == null) {
+			return new DirectionPointSimplify[0];
+		}
+		QuadRect rect = new QuadRect(0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
+		List<DirectionPoint> points = directionPoints.queryInBox(rect, new ArrayList<DirectionPoint>());
+		DirectionPointSimplify[] result = new DirectionPointSimplify[points.size()];
+		for (int i = 0; i < points.size(); i++) {
+			DirectionPoint point = points.get(i);
+			result[i] = new DirectionPointSimplify(point.getLatitude(), point.getLongitude(), point.getTags());
+		}
+		return result;
+	}
+
+	public static class DirectionPointSimplify {
+		public int x31;
+		public int y31;
+		public String[][] tags;
+		public DirectionPointSimplify(double lat, double lon, Map<String, String> tags) {
+			x31 = MapUtils.get31TileNumberX(lon);
+			y31 = MapUtils.get31TileNumberY(lat);
+			this.tags = new String[tags.size()][2];
+			int i = 0;
+			for (Map.Entry<String, String> e : tags.entrySet()) {
+				this.tags[i][0] = e.getKey();
+				this.tags[i][1] = e.getValue();
+				i++;
+			}
+		}
 	}
 
 	public static class DirectionPoint extends Node {
@@ -145,7 +177,8 @@ public class RoutingConfiguration {
 					DirectionPoint dp = new DirectionPoint(n);
 					int x = MapUtils.get31TileNumberX(dp.getLongitude());
 					int y = MapUtils.get31TileNumberY(dp.getLatitude());
-					i.directionPoints.insert(dp, new QuadRect(x, y, x, y));
+					QuadRect qr = new QuadRect(x, y, x, y);
+					i.directionPoints.insert(dp, qr);
 				}
 			}
 //			i.planRoadDirection = 1;

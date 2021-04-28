@@ -280,7 +280,7 @@ public class RoutingContext {
 			List<DirectionPoint> points = Collections.emptyList();
 			if (config.getDirectionPoints() != null) {
 				points = config.getDirectionPoints().queryInBox(
-						new QuadRect(ts.subregion.left, ts.subregion.top, ts.subregion.right, ts.subregion.bottom), new ArrayList<>());
+						new QuadRect(ts.subregion.left, ts.subregion.top, ts.subregion.right, ts.subregion.bottom), new ArrayList<DirectionPoint>());
 				for (DirectionPoint d : points) {
 					// use temporary types
 					d.types.clear();
@@ -308,6 +308,9 @@ public class RoutingContext {
 							if (config.router.acceptLine(ro)) {
 								if (excludeNotAllowed != null && !excludeNotAllowed.contains(ro.getId())) {
 									connectPoint(ts, ro, points);
+									if (ro.id == 5108851433L) {
+										System.out.println("DEBUG");
+									}
 									ts.add(ro);
 								}
 							}
@@ -542,56 +545,77 @@ public class RoutingContext {
 			if (np.types.size() == 0) {
 				continue;
 			}	
-			boolean sameRoadId = np.connected != null && np.connected.getId() == ro.getId() && np.connected != ro;
+			//boolean sameRoadId = np.connected != null && np.connected.getId() == ro.getId() && np.connected != ro;
+			if (np.connected != null && np.connected.getId() == ro.getId()) {
+				continue;
+			}
 			int wptX = MapUtils.get31TileNumberX(np.getLongitude());
 			int wptY = MapUtils.get31TileNumberY(np.getLatitude());
 			
 			int x = ro.getPoint31XTile(0);
 			int y = ro.getPoint31YTile(0);
+			int savedPointIndex = 0;
+			int savedDistance = config.directionPointsRadius;
+			boolean found = false;
 			for(int i = 1; i < ro.getPointsLength(); i++) {
 				int nx = ro.getPoint31XTile(i);
 				int ny = ro.getPoint31YTile(i);
 				// TODO wptX != x || wptY != y this check is questionable
-				boolean sameRoadIdIndex = sameRoadId && np.pointIndex == i && (wptX != x || wptY != y);
+				//boolean sameRoadIdIndex = sameRoadId && np.pointIndex == i && (wptX != x || wptY != y);
 				
 				boolean sgnx = nx - wptX > 0; 
 				boolean sgx = x - wptX > 0;
 				boolean sgny = ny - wptY > 0; 
 				boolean sgy = y - wptY > 0;
 				double dist;
+				QuadPoint pnt = MapUtils.getProjectionPoint31(wptX, wptY, x, y, nx, ny);
 				if (sgny == sgy && sgx == sgnx) {
 					// point outside of rect (line is diagonal) distance is likely be bigger
 					// TODO this can be speed up without projection!
 					dist = MapUtils.squareRootDist31(wptX, wptY, Math.abs(nx - wptX) < Math.abs(x - wptX) ? nx : x,
 							Math.abs(ny - wptY) < Math.abs(y - wptY) ? ny : y);
 					if (dist < config.directionPointsRadius) {
-						QuadPoint pnt = MapUtils.getProjectionPoint31(wptX, wptY, x, y, nx, ny);
 						dist = MapUtils.squareRootDist31(wptX, wptY, (int) pnt.x, (int) pnt.y);
 					}
 				} else {
-					QuadPoint pnt = MapUtils.getProjectionPoint31(wptX, wptY, x, y, nx, ny);
 					dist = MapUtils.squareRootDist31(wptX, wptY, (int) pnt.x, (int) pnt.y);
 				}
 
-				if ((dist < np.distance && dist < config.directionPointsRadius) || sameRoadIdIndex) {
-					System.out.println(String.format("INSERT %s %s (%d-%d) %.0f m [%.5f, %.5f] ",  ts.subregion.hashCode() + "",
-							ro, i, i + 1, dist, MapUtils.get31LatitudeY(wptY), MapUtils.get31LongitudeX(wptX)));
-					if (np.connected != null && !sameRoadIdIndex) {
-						// clear old connected
-						np.connected.setPointTypes(np.pointIndex, new int[0]);
+				if (dist < np.distance && dist < config.directionPointsRadius) {
+					found = true;
+					if (dist < savedDistance) {
+						savedDistance = (int)dist;
+						savedPointIndex = i;
 					}
-					ro.insert(i, wptX, wptY);
-					// ro.insert(i, (int) pnt.x, (int) pnt.y); // TODO more correct
-					ro.setPointTypes(i, np.types.toArray());
-					np.distance = dist;
-					np.connected = ro;
-					np.pointIndex = i;
-					i++;
 				}
 				
 				x = nx;
 				y = ny;
 				
+			}
+			if (found) {
+				if (np.connected != null && np.connected.getId() != ro.getId()) {
+					if (np.distance < savedDistance) {
+						continue;
+					} else {
+						//np.connected.setPointTypes(np.pointIndex, new int[0]);
+					}
+				}
+				//50.446590/30.496750
+				double lon = MapUtils.get31LongitudeX(wptX);
+				double lat = MapUtils.get31LatitudeY(wptY);
+				double ro_lon_1 = MapUtils.get31LongitudeX(ro.pointsX[0]);
+				double ro_lat_1 = MapUtils.get31LatitudeY(ro.pointsY[0]);
+				double ro_lon_2 = MapUtils.get31LongitudeX(ro.pointsX[ro.pointsX.length - 1]);
+				double ro_lat_2 = MapUtils.get31LatitudeY(ro.pointsY[ro.pointsY.length - 1]);
+
+				System.out.println(String.format("%f/%f np.types[0]:%d distance:%d %f/%f %f/%f ro.id:%d", lat, lon, np.types.get(0), savedDistance, ro_lat_1, ro_lon_1, ro_lat_2, ro_lon_2, ro.getId()));
+
+				ro.insert(savedPointIndex, wptX, wptY);
+				//ro.setPointTypes(savedPointIndex, np.types.toArray());
+				np.distance = savedDistance;
+				np.connected = ro;
+				np.pointIndex = savedPointIndex;
 			}
 		}
 	}
